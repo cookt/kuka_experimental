@@ -152,8 +152,11 @@ void FramefabPanel::drawLink()
   msg.poses.push_back( pose_b); 
   std::cout << "Publishing points: " << nodes[edge.first] << " " <<  nodes[edge.second] << std::endl;
   edges.pop_front();
-  pose_publisher_.publish(msg);
-    
+  pose_publisher_.publish(msg);  
+  QString parse_msg = "Nodes: " + QString::number(nodes.size()) + " Links: " + QString::number( edges.size()) +
+		" Pillars: " + QString::number(pillars.size()) + " Ceilings: " + QString::number( ceilings.size())+ "\n" +
+		"Next edge: " + QString::number(edges[0].first) + "," + QString::number(edges[0].second);
+  file_display_->setText(parse_msg);
 } 
 
 } //namespace
