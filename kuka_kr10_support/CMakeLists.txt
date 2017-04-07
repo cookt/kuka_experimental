@@ -3,12 +3,21 @@ cmake_minimum_required(VERSION 2.8.3)
 project(kuka_kr10_support)
 find_package(catkin REQUIRED
   COMPONENTS
+    moveit_visual_tools
+    rviz_visual_tools
+    eigen_conversions
     moveit_core
     moveit_ros_planning
     moveit_ros_planning_interface
     pluginlib
+    tf_conversions
     cmake_modules
     geometric_shapes
+    roscpp
+    graph_msgs
+    std_msgs
+    trajectory_msgs
+    cmake_modules	
 )
 
 find_package(Boost REQUIRED system filesystem date_time thread)
@@ -17,8 +26,20 @@ include(${QT_USE_FILE})
 catkin_package(
   CATKIN_DEPENDS
     moveit_core
+    rviz_visual_tools
+    tf_conversions
+    eigen_conversions
     moveit_ros_planning_interface
     interactive_markers
+    moveit_ros_planning
+    moveit_ros_planning_interface
+    pluginlib
+    geometric_shapes
+    moveit_ros_robot_interaction
+    graph_msgs
+    std_msgs
+    moveit_msgs
+    moveit_visual_tools
 )
 find_package(Eigen REQUIRED)
 

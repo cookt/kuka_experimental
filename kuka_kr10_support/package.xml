@@ -47,7 +47,24 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rviz</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <build_depend>eigen_conversions</build_depend> 
+  <exec_depend>eigen_conversions</exec_depend>
+  <build_depend>tf_conversions</build_depend> 
+  <exec_depend>tf_conversions</exec_depend>
+  <build_depend>moveit_ros_robbot_interaction</build_depend> 
+  <exec_depend>moveit_ros_robot_interaction</exec_depend>
+  <build_depend>graph_msgs</build_depend> 
+  <exec_depend>graph_msgs</exec_depend>
 
+  <build_depend>std_msgs</build_depend> 
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
+
+
+  <exec_depend>geometric_shapes</exec_depend>
+  <build_depend>moveit_ros_planning</build_depend>
+  <build_depend>rviz_visual_tools</build_depend> 
+  <exec_depend>rviz_visual_tools</exec_depend>
   <build_depend>pluginlib</build_depend>
   <build_depend>eigen</build_depend>
   <build_depend>moveit_core</build_depend>
@@ -60,6 +77,7 @@
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>moveit_core</exec_depend>
   <exec_depend>moveit_fake_controller_manager</exec_depend>
+  <exec_depend>moveit_ros_planning</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
   <exec_depend>moveit_ros_perception</exec_depend>
   <exec_depend>interactive_markers</exec_depend>

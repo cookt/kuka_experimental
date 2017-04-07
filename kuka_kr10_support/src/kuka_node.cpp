@@ -1,13 +1,15 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
-#include <moveit_msgs/AttachedCollisionObject.h>
-#include <moveit_msgs/CollisionObject.h>
+#include <moveit_visual_tools/moveit_visual_tools.h>
 #include <geometry_msgs/PoseArray.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 #include <cmath>
+
+static const std::string PLANNING_GROUP_NAME = "manipulator";
 
 static ros::Publisher display_publisher;
 static ros::Publisher marker_pub;
@@ -16,7 +18,8 @@ static visualization_msgs::Marker nodes;
 static ros::Rate * r;
 static geometry_msgs::Point testbed_offset;
 static moveit::planning_interface::MoveGroup * move_group;
-static moveit::planning_interface::PlanningSceneInterface * planning_scene_interface;  
+static moveit::planning_interface::PlanningSceneInterface planning_scene_interface;  
+static moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 
 //Takes in framefab point and returns it transformed to the coordinates of our testbed
 geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
@@ -26,10 +29,22 @@ geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
    return pwf_point;
 }
 
+float get_height(geometry_msgs::Point a, geometry_msgs::Point b) {
+  return std::sqrt( a.x*b.x + a.y*b.y + a.z*b.z); 
+}
+
 //Callback function for when framefab panel publishes links to draw and plan for
 void frameCallback(geometry_msgs::PoseArray msg){
-  ROS_INFO("frame subscriber callback");
-  std::cout << msg << std::endl;
+  moveit_msgs::CollisionObject collision_object;
+  collision_object.header.frame_id = move_group->getPlanningFrame();
+  collision_object.operation = moveit_msgs::CollisionObject::ADD;
+  shape_msgs::SolidPrimitive link_cylinder;
+  link_cylinder.type = shape_msgs::SolidPrimitive::CYLINDER;
+  link_cylinder.dimensions.resize(2);
+  link_cylinder.dimensions[0] = get_height(msg.poses[0].position, msg.poses[1].position);
+  link_cylinder.dimensions[1] = 0.01;
+ 
+  // Drawing frame w/ no collision
   link_list.header.stamp = ros::Time::now();
   geometry_msgs::Point start = transformPoint(msg.poses[0].position);
   geometry_msgs::Point end = transformPoint( msg.poses[1].position);
@@ -38,7 +53,17 @@ void frameCallback(geometry_msgs::PoseArray msg){
   nodes.points.push_back(start);
   nodes.points.push_back(end);
   marker_pub.publish(nodes);
-  marker_pub.publish(link_list); 
+  marker_pub.publish(link_list);
+   
+  geometry_msgs::Pose p;
+  p.position = testbed_offset;
+  p.orientation.w = 1.0;
+  std::vector<moveit_msgs::CollisionObject> collision_objects;
+  collision_object.primitives.push_back(link_cylinder);
+  collision_object.primitive_poses.push_back(p);
+  collision_objects.push_back(collision_object);
+  std::cout << "Still not dead" << std::endl;
+  planning_scene_interface.addCollisionObjects(collision_objects);
   r->sleep();
 }    
 
@@ -65,6 +90,7 @@ void initLinklist(){
 
 }
 
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "kuka_node");
@@ -72,7 +98,7 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::Subscriber frame_sub = node_handle.subscribe("framelinks", 0 , &frameCallback);
-  marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
+   marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
   /* This sleep is ONLY to allow Rviz to come up */
   // We will use the :planning_scene_interface:`PlanningSceneInterface`
   // class to deal directly with the world.
@@ -81,7 +107,7 @@ int main(int argc, char **argv)
   r->sleep();
   
   testbed_offset.x = 0.5;
-  testbed_offset.y =-0.5;
+  testbed_offset.y = 0.0;
   testbed_offset.z = 0.33;
  
   move_group = new moveit::planning_interface::MoveGroup("manipulator"); 
