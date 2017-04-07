@@ -18,7 +18,7 @@ static visualization_msgs::Marker nodes;
 static ros::Rate * r;
 static geometry_msgs::Point testbed_offset;
 static moveit::planning_interface::MoveGroup * move_group;
-static moveit::planning_interface::PlanningSceneInterface planning_scene_interface;  
+static moveit::planning_interface::PlanningSceneInterface * planning_scene_interface;  
 static moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 
 //Takes in framefab point and returns it transformed to the coordinates of our testbed
@@ -63,7 +63,7 @@ void frameCallback(geometry_msgs::PoseArray msg){
   collision_object.primitive_poses.push_back(p);
   collision_objects.push_back(collision_object);
   std::cout << "Still not dead" << std::endl;
-  planning_scene_interface.addCollisionObjects(collision_objects);
+  planning_scene_interface->addCollisionObjects(collision_objects);
   r->sleep();
 }    
 
@@ -98,15 +98,16 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::Subscriber frame_sub = node_handle.subscribe("framelinks", 0 , &frameCallback);
-   marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
+  marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
   /* This sleep is ONLY to allow Rviz to come up */
   // We will use the :planning_scene_interface:`PlanningSceneInterface`
   // class to deal directly with the world.
+  planning_scene_interface = new moveit::planning_interface::PlanningSceneInterface();
   initLinklist();
   r = new ros::Rate(20.0);
   r->sleep();
   
-  testbed_offset.x = 0.5;
+  testbed_offset.x = 1.0;
   testbed_offset.y = 0.0;
   testbed_offset.z = 0.33;
  
