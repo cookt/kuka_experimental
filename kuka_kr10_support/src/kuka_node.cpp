@@ -30,7 +30,10 @@ geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
 }
 
 float get_height(geometry_msgs::Point a, geometry_msgs::Point b) {
-  return std::sqrt( a.x*b.x + a.y*b.y + a.z*b.z); 
+  float x = a.x - b.x;
+  float y = a.y - b.y;
+  float z = a.z - b.z;
+  return std::sqrt( x*x + y*y + z*z); 
 }
 
 //Callback function for when framefab panel publishes links to draw and plan for
@@ -109,7 +112,7 @@ int main(int argc, char **argv)
   
   testbed_offset.x = 1.0;
   testbed_offset.y = 0.0;
-  testbed_offset.z = 0.33;
+  testbed_offset.z = 0.0;
  
   move_group = new moveit::planning_interface::MoveGroup("manipulator"); 
   // Publisher for visualizing plans in Rviz.
