@@ -61,6 +61,7 @@
   <exec_depend>moveit_msgs</exec_depend>
 
 
+  <build_depend>geometric_shapes</build_depend>
   <exec_depend>geometric_shapes</exec_depend>
   <build_depend>moveit_ros_planning</build_depend>
   <build_depend>rviz_visual_tools</build_depend> 
@@ -71,7 +72,7 @@
   <build_depend>moveit_ros_planning_interface</build_depend>
   <build_depend>moveit_ros_perception</build_depend>
   <build_depend>interactive_markers</build_depend>
-  <build_depend>geometric_shapes</build_depend>
+  <build_depend>ssgeometric_shapes</build_depend>
   <build_depend>moveit_visual_tools</build_depend>
   <exec_depend>class_loader</exec_depend>
   <exec_depend>pluginlib</exec_depend>
@@ -82,6 +83,7 @@
   <exec_depend>moveit_ros_perception</exec_depend>
   <exec_depend>interactive_markers</exec_depend>
   <exec_depend>moveit_visual_tools</exec_depend>
+  <exec_depend>rviz_visual_tools</exec_depend>
   <export>
     <architecture_independent/>
     <rviz plugin ="${prefix}/plugin_description.xml"/>
