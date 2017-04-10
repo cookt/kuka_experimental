@@ -3,10 +3,12 @@
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
-#include <moveit_visual_tools/moveit_visual_tools.h>
+#include <rviz_visual_tools/rviz_visual_tools.h>
 #include <geometry_msgs/PoseArray.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
+#include <tf_conversions/tf_eigen.h>
+#include <eigen_conversions/eigen_msg.h>
 #include <cmath>
 
 static const std::string PLANNING_GROUP_NAME = "manipulator";
@@ -35,6 +37,7 @@ float get_height(geometry_msgs::Point a, geometry_msgs::Point b) {
   float z = a.z - b.z;
   return std::sqrt( x*x + y*y + z*z); 
 }
+static std::vector<moveit_msgs::CollisionObject> collision_objects;
 
 //Callback function for when framefab panel publishes links to draw and plan for
 void frameCallback(geometry_msgs::PoseArray msg){
@@ -44,29 +47,35 @@ void frameCallback(geometry_msgs::PoseArray msg){
   shape_msgs::SolidPrimitive link_cylinder;
   link_cylinder.type = shape_msgs::SolidPrimitive::CYLINDER;
   link_cylinder.dimensions.resize(2);
-  link_cylinder.dimensions[0] = get_height(msg.poses[0].position, msg.poses[1].position);
+  Eigen::Vector3d a, b; 
+  geometry_msgs::PointPtr pa( new geometry_msgs::Point(msg.poses[0].position));
+  geometry_msgs::PointPtr pb( new geometry_msgs::Point(msg.poses[1].position));
+  a = rviz_visual_tools::RvizVisualTools::convertPoint(pa );
+  b = rviz_visual_tools::RvizVisualTools::convertPoint(pb );
+  double height = (a-b).lpNorm<2>();
+  link_cylinder.dimensions[0] = height;
   link_cylinder.dimensions[1] = 0.01;
- 
+  Eigen::Vector3d center = rviz_visual_tools::RvizVisualTools::getCenterPoint(&a,&b);
+
+
+  Eigen::Affine3d pose;
+  pose = rviz_visual_tools::RvizVisualTools::getVectorBetweenPoints(center, b) * Eigen::AngleAxisd(0.5 * M_PI, Eigen::Vector3d::UnitY());
   // Drawing frame w/ no collision
   link_list.header.stamp = ros::Time::now();
-  geometry_msgs::Point start = transformPoint(msg.poses[0].position);
-  geometry_msgs::Point end = transformPoint( msg.poses[1].position);
-  link_list.points.push_back(start);
-  link_list.points.push_back(end);  
-  nodes.points.push_back(start);
-  nodes.points.push_back(end);
-  marker_pub.publish(nodes);
-  marker_pub.publish(link_list);
+  //Eigen::Vector3d  start = visual_tools_.convertPoint(msg.poses[0].position);
+  //Eigen::Vector3d  end = convertPoint( msg.poses[1].position);
+  //link_list.points.push_back(start);
+  //link_list.points.push_back(end);  
+  //nodes.points.push_back(start);
+  //nodes.points.push_back(end);
+  //marker_pub.publish(nodes);
+  //marker_pub.publish(link_list);
    
-  geometry_msgs::Pose p;
-  p.position = testbed_offset;
-  p.orientation.w = 1.0;
-  std::vector<moveit_msgs::CollisionObject> collision_objects;
   collision_object.primitives.push_back(link_cylinder);
-  collision_object.primitive_poses.push_back(p);
+  collision_object.primitive_poses.push_back(rviz_visual_tools::RvizVisualTools::convertPose(pose));
   collision_objects.push_back(collision_object);
-  std::cout << "Still not dead" << std::endl;
   planning_scene_interface->addCollisionObjects(collision_objects);
+  std::cout << collision_objects.size() << std::endl;
   r->sleep();
 }    
 
@@ -117,7 +126,6 @@ int main(int argc, char **argv)
   move_group = new moveit::planning_interface::MoveGroup("manipulator"); 
   // Publisher for visualizing plans in Rviz.
   display_publisher = node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
-
   while(ros::ok()) {
     ros::spinOnce();
   } 
