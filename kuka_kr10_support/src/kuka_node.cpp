@@ -21,6 +21,8 @@ static ros::Rate * r;
 static geometry_msgs::Point testbed_offset;
 static moveit::planning_interface::MoveGroup * move_group;
 static moveit::planning_interface::PlanningSceneInterface * planning_scene_interface;  
+static float cylinder_radius = 0.001;
+
 
 //Takes in framefab point and returns it transformed to the coordinates of our testbed
 geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
@@ -33,28 +35,22 @@ geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
 
 static std::vector<moveit_msgs::CollisionObject> collision_objects;
 
-//Callback function for when framefab panel publishes links to draw and plan for
-void frameCallback(geometry_msgs::PoseArray msg){
+moveit_msgs::CollisionObject makeCollisionCylinder(geometry_msgs::Point start, geometry_msgs::Point end,std::string id) {
   moveit_msgs::CollisionObject collision_object;
-  collision_object.id = "link"+nLinks;
-  nLinks++;
+  collision_object.id = id;
   collision_object.header.frame_id = move_group->getPlanningFrame();
   collision_object.operation = moveit_msgs::CollisionObject::ADD;
   shape_msgs::SolidPrimitive link_cylinder;
   link_cylinder.type = shape_msgs::SolidPrimitive::CYLINDER;
   link_cylinder.dimensions.resize(2);
     
-  geometry_msgs::Point start = transformPoint(msg.poses[0].position);
-  geometry_msgs::Point end = transformPoint( msg.poses[1].position);
   Eigen::Vector3d eStart, eEnd;
   tf::pointMsgToEigen(start, eStart);
   tf::pointMsgToEigen(end, eEnd);
   double height = (eStart-eEnd).lpNorm<2>();
   link_cylinder.dimensions[0] = height;
-  link_cylinder.dimensions[1] = 0.01;
+  link_cylinder.dimensions[1] = cylinder_radius;
 
-  //link_list.points.push_back(start);
-  //link_list.points.push_back(end);  
   Eigen::Vector3d axis = eStart - eEnd;
   axis.normalize();
   Eigen::Vector3d zVec(0.0,0.0,1.0);
@@ -75,7 +71,9 @@ void frameCallback(geometry_msgs::PoseArray msg){
   Eigen::Affine3d pose;
   q.normalize();
   pose = q * Eigen::AngleAxisd(-0.5*M_PI, Eigen::Vector3d::UnitY());
-  pose.translation() = eStart;
+  Eigen::Vector3d origin;
+  tf::pointMsgToEigen(testbed_offset, origin);
+  pose.translation() = origin + eStart;
   geometry_msgs::Pose linkPose;
   tf::poseEigenToMsg(pose , linkPose);
   collision_object.primitive_poses.push_back(linkPose);
@@ -86,11 +84,24 @@ void frameCallback(geometry_msgs::PoseArray msg){
   //marker_pub.publish(link_list);
    
   collision_object.primitives.push_back(link_cylinder);
+  
+  return collision_object;
+}
+
+
+//Callback function for when framefab panel publishes links to draw and plan for
+void frameCallback(geometry_msgs::PoseArray msg){
+  std::string id = "link" + nLinks;
+  nLinks++;
+  geometry_msgs::Point start = msg.poses[0].position;
+  geometry_msgs::Point end = msg.poses[1].position;
+
+  moveit_msgs::CollisionObject collision_object = makeCollisionCylinder(start, end, id);
   collision_objects.push_back(collision_object);
   planning_scene_interface->addCollisionObjects(collision_objects);
-  std::cout << collision_objects.size() << std::endl;
   r->sleep();
 }    
+
 
 //Initialize the LINE_LIST Marker display parameters
 void initLinklist(){
@@ -133,8 +144,8 @@ int main(int argc, char **argv)
   r->sleep();
   
   testbed_offset.x = 1.0;
-  testbed_offset.y = 0.0;
-  testbed_offset.z = 0.0;
+  testbed_offset.y = -0.5;
+  testbed_offset.z = 0.33;
   nLinks = 0;  
 
   move_group = new moveit::planning_interface::MoveGroup("manipulator"); 
