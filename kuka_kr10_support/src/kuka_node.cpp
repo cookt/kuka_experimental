@@ -12,7 +12,7 @@
 #include <cmath>
 
 static const std::string PLANNING_GROUP_NAME = "manipulator";
-
+static int nLinks;
 static ros::Publisher display_publisher;
 static ros::Publisher marker_pub;
 static visualization_msgs::Marker link_list;
@@ -21,7 +21,6 @@ static ros::Rate * r;
 static geometry_msgs::Point testbed_offset;
 static moveit::planning_interface::MoveGroup * move_group;
 static moveit::planning_interface::PlanningSceneInterface * planning_scene_interface;  
-static moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 
 //Takes in framefab point and returns it transformed to the coordinates of our testbed
 geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
@@ -31,48 +30,62 @@ geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
    return pwf_point;
 }
 
-float get_height(geometry_msgs::Point a, geometry_msgs::Point b) {
-  float x = a.x - b.x;
-  float y = a.y - b.y;
-  float z = a.z - b.z;
-  return std::sqrt( x*x + y*y + z*z); 
-}
+
 static std::vector<moveit_msgs::CollisionObject> collision_objects;
 
 //Callback function for when framefab panel publishes links to draw and plan for
 void frameCallback(geometry_msgs::PoseArray msg){
   moveit_msgs::CollisionObject collision_object;
+  collision_object.id = "link"+nLinks;
+  nLinks++;
   collision_object.header.frame_id = move_group->getPlanningFrame();
   collision_object.operation = moveit_msgs::CollisionObject::ADD;
   shape_msgs::SolidPrimitive link_cylinder;
   link_cylinder.type = shape_msgs::SolidPrimitive::CYLINDER;
   link_cylinder.dimensions.resize(2);
-  Eigen::Vector3d a, b; 
-  geometry_msgs::PointPtr pa( new geometry_msgs::Point(msg.poses[0].position));
-  geometry_msgs::PointPtr pb( new geometry_msgs::Point(msg.poses[1].position));
-  a = rviz_visual_tools::RvizVisualTools::convertPoint(pa );
-  b = rviz_visual_tools::RvizVisualTools::convertPoint(pb );
-  double height = (a-b).lpNorm<2>();
+    
+  geometry_msgs::Point start = transformPoint(msg.poses[0].position);
+  geometry_msgs::Point end = transformPoint( msg.poses[1].position);
+  Eigen::Vector3d eStart, eEnd;
+  tf::pointMsgToEigen(start, eStart);
+  tf::pointMsgToEigen(end, eEnd);
+  double height = (eStart-eEnd).lpNorm<2>();
   link_cylinder.dimensions[0] = height;
   link_cylinder.dimensions[1] = 0.01;
-  Eigen::Vector3d center = rviz_visual_tools::RvizVisualTools::getCenterPoint(&a,&b);
 
-
-  Eigen::Affine3d pose;
-  pose = rviz_visual_tools::RvizVisualTools::getVectorBetweenPoints(center, b) * Eigen::AngleAxisd(0.5 * M_PI, Eigen::Vector3d::UnitY());
-  // Drawing frame w/ no collision
-  link_list.header.stamp = ros::Time::now();
-  //Eigen::Vector3d  start = visual_tools_.convertPoint(msg.poses[0].position);
-  //Eigen::Vector3d  end = convertPoint( msg.poses[1].position);
   //link_list.points.push_back(start);
   //link_list.points.push_back(end);  
+  Eigen::Vector3d axis = eStart - eEnd;
+  axis.normalize();
+  Eigen::Vector3d zVec(0.0,0.0,1.0);
+  Eigen::Vector3d xVec = axis.cross(zVec);
+  xVec.normalize();
+  double theta = axis.dot(zVec);
+  double angle = -1.0 * acos(theta);
+ 
+  tf::Vector3 tf_right_axis_vector;
+  tf::vectorEigenToTF(xVec, tf_right_axis_vector);
+  Eigen::Quaterniond q;
+  // Create quaternion
+  tf::Quaternion tf_q(tf_right_axis_vector, angle);
+
+  // Convert back to Eigen
+  tf::quaternionTFToEigen(tf_q, q);
+  q.normalize();
+  Eigen::Affine3d pose;
+  q.normalize();
+  pose = q * Eigen::AngleAxisd(-0.5*M_PI, Eigen::Vector3d::UnitY());
+  pose.translation() = eStart;
+  geometry_msgs::Pose linkPose;
+  tf::poseEigenToMsg(pose , linkPose);
+  collision_object.primitive_poses.push_back(linkPose);
+  // Drawing frame w/ no collision
   //nodes.points.push_back(start);
   //nodes.points.push_back(end);
   //marker_pub.publish(nodes);
   //marker_pub.publish(link_list);
    
   collision_object.primitives.push_back(link_cylinder);
-  collision_object.primitive_poses.push_back(rviz_visual_tools::RvizVisualTools::convertPose(pose));
   collision_objects.push_back(collision_object);
   planning_scene_interface->addCollisionObjects(collision_objects);
   std::cout << collision_objects.size() << std::endl;
@@ -110,19 +123,20 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::Subscriber frame_sub = node_handle.subscribe("framelinks", 0 , &frameCallback);
-  marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
+  //marker_pub = node_handle.advertise<visualization_msgs::Marker>("visualization_marker",0);
   /* This sleep is ONLY to allow Rviz to come up */
   // We will use the :planning_scene_interface:`PlanningSceneInterface`
   // class to deal directly with the world.
   planning_scene_interface = new moveit::planning_interface::PlanningSceneInterface();
-  initLinklist();
+  // initLinklist();
   r = new ros::Rate(20.0);
   r->sleep();
   
   testbed_offset.x = 1.0;
   testbed_offset.y = 0.0;
   testbed_offset.z = 0.0;
- 
+  nLinks = 0;  
+
   move_group = new moveit::planning_interface::MoveGroup("manipulator"); 
   // Publisher for visualizing plans in Rviz.
   display_publisher = node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
