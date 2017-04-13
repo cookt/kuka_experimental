@@ -30,19 +30,21 @@ public:
   // topic name.
   virtual void load( const rviz::Config& config );
   virtual void save( rviz::Config config ) const;
-
+  void publishLink( int i);
   // Next come a couple of public Qt slots.
 public Q_SLOTS:
   
-  void readFile();
-  void drawLink();
+  void readFile(); //handle to read the file 
+  void drawLink(); //publishing individual cylinders
+  void drawFrame(); //publishing the whole frame
   // Here we declare some internal slots.
   // Then we finish up with protected member variables.
 protected:
   // One-line text editor for entering the outgoing ROS topic name.
   QLineEdit* seq_file_editor_;
-  QPushButton* button_;
-  QPushButton* publish_;
+  QPushButton* file_select_button;
+  QPushButton* publish_single_link_button;
+  QPushButton* publish_frame_button;
   // The current filename in the field
   QString file_name_;
   

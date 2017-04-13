@@ -30,16 +30,18 @@ FramefabPanel::FramefabPanel( QWidget* parent )
   QHBoxLayout* topic_layout = new QHBoxLayout;
   topic_layout->addWidget( new QLabel( "Sequence File:" ));
   seq_file_editor_ = new QLineEdit;
-  button_ = new QPushButton("Browse");
+  file_select_button = new QPushButton("Browse");
   topic_layout->addWidget( seq_file_editor_ );
-  topic_layout->addWidget( button_ );
+  topic_layout->addWidget( file_select_button );
   file_display_ = new QTextEdit;
   // Lay out the topic field above the control widget.
   QVBoxLayout* layout = new QVBoxLayout;
   layout->addLayout( topic_layout );
   layout->addWidget( file_display_ );
-  publish_ = new QPushButton("Publish links");
-  layout->addWidget( publish_ );
+  publish_single_link_button = new QPushButton("Publish links");
+  publish_frame_button = new QPushButton("Publish Frame");
+  layout->addWidget( publish_single_link_button );
+  layout->addWidget( publish_frame_button );
   setLayout( layout );
   // Create a timer for sending the output.  Motor controllers want to
   // be reassured frequently that they are doing the right thing, so
@@ -53,8 +55,9 @@ FramefabPanel::FramefabPanel( QWidget* parent )
   QTimer* output_timer = new QTimer( this );
 
   // Next we make signal/slot connections.
-  connect( button_ , SIGNAL( clicked() ), this, SLOT( readFile() ));
-  connect( publish_, SIGNAL( clicked() ), this, SLOT( drawLink() ));  
+  connect( file_select_button , SIGNAL( clicked() ), this, SLOT( readFile() ));
+  connect( publish_single_link_button, SIGNAL( clicked() ), this, SLOT( drawLink() ));  
+  connect( publish_frame_button, SIGNAL( clicked() ), this, SLOT( drawFrame()));
   pose_publisher_ = nh_.advertise<geometry_msgs::PoseArray>("/framelinks",1000);
   // Start the timer.
   output_timer->start( 100 );
@@ -133,6 +136,10 @@ static geometry_msgs::Point scale(geometry_msgs::Point p, float sf){
   return result;
 }
 
+static QString poseToString(geometry_msgs::Pose pose) {
+   return "["+QString::number(pose.position.x)+","+QString::number(pose.position.y)+","+QString::number(pose.position.z)+"]";
+}
+
 //Publishes single link at beginning of edges list and pops off list
 void FramefabPanel::drawLink()
 { 
@@ -140,24 +147,37 @@ void FramefabPanel::drawLink()
     ROS_INFO("no links to draw");
     return;
   }
-  std::cout << "Publishing Link: " << edges[0].first << " " << edges[0].second << std::endl;
-  geometry_msgs::PoseArray msg;
-  std::pair<int,int> edge = edges[0];
+  this->publishLink(0);
+  edges.pop_front();
+} 
+
+
+
+void FramefabPanel::publishLink(int i) {
+  std::pair<int,int> edge = edges[i];
   geometry_msgs::Pose pose_a;
   geometry_msgs::Pose pose_b;
   pose_a.position = scale(nodes[edge.first], 0.001);
   pose_b.position = scale(nodes[edge.second], 0.001);
-  
+   
+  geometry_msgs::PoseArray msg;
   msg.poses.push_back( pose_a);
   msg.poses.push_back( pose_b); 
-  std::cout << "Publishing points: " << nodes[edge.first] << " " <<  nodes[edge.second] << std::endl;
-  edges.pop_front();
-  pose_publisher_.publish(msg);  
-  QString parse_msg = "Nodes: " + QString::number(nodes.size()) + " Links: " + QString::number( edges.size()) +
-		" Pillars: " + QString::number(pillars.size()) + " Ceilings: " + QString::number( ceilings.size())+ "\n" +
-		"Next edge: " + QString::number(edges[0].first) + "," + QString::number(edges[0].second);
-  file_display_->setText(parse_msg);
-} 
+   
+  pose_publisher_.publish(msg); 
+  QString display_msg = "Published link with Start pose:" + poseToString(pose_a) + " and end pose: " + poseToString(pose_b) ;
+  file_display_->setText(display_msg); 
+}
+
+void FramefabPanel::drawFrame() {
+   if (edges.size() == 0 ) {
+    ROS_INFO("no links to draw");
+    return;
+  }
+  for ( int i = 0; i < edges.size(); i++) {
+    this->publishLink(i);
+  } 
+}
 
 } //namespace
 // Tell pluginlib about this class.  Every class which should be

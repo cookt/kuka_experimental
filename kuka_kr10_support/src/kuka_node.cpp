@@ -88,7 +88,11 @@ moveit_msgs::CollisionObject makeCollisionCylinder(geometry_msgs::Point start, g
   return collision_object;
 }
 
+void drawAll() {
 
+  planning_scene_interface->addCollisionObjects(collision_objects);
+  r->sleep();
+}
 //Callback function for when framefab panel publishes links to draw and plan for
 void frameCallback(geometry_msgs::PoseArray msg){
   std::string id = "link" + nLinks;
@@ -98,9 +102,10 @@ void frameCallback(geometry_msgs::PoseArray msg){
 
   moveit_msgs::CollisionObject collision_object = makeCollisionCylinder(start, end, id);
   collision_objects.push_back(collision_object);
-  planning_scene_interface->addCollisionObjects(collision_objects);
-  r->sleep();
+  drawAll();
 }    
+
+
 
 
 //Initialize the LINE_LIST Marker display parameters
@@ -143,7 +148,7 @@ int main(int argc, char **argv)
   r = new ros::Rate(20.0);
   r->sleep();
   
-  testbed_offset.x = 1.0;
+  testbed_offset.x = 0.5;
   testbed_offset.y = -0.5;
   testbed_offset.z = 0.33;
   nLinks = 0;  
