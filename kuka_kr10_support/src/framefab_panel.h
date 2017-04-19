@@ -34,7 +34,7 @@ public:
   // Next come a couple of public Qt slots.
 public Q_SLOTS:
   
-  void readFile(); //handle to read the file 
+  void readPWFFile(); //handle to read the file 
   void drawLink(); //publishing individual cylinders
   void drawFrame(); //publishing the whole frame
   // Here we declare some internal slots.

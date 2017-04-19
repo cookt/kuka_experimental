@@ -10,6 +10,7 @@
 #include <QFileDialog>
 #include <QTextEdit>
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Point.h>
 #include <deque>
 #include "framefab_panel.h"
 
@@ -21,7 +22,13 @@ static std::vector<geometry_msgs::Point> nodes;
 static std::deque<std::pair<int,int> > edges;
 static std::vector<std::pair<int,int> > pillars;
 static std::vector<std::pair<int,int> > ceilings;
-
+static geometry_msgs::Point testbed_offset;
+static geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
+   pwf_point.x += testbed_offset.x;
+   pwf_point.y += testbed_offset.y;
+   pwf_point.z += testbed_offset.z; //TODO likely need to find lowest link and offset all by some amount
+   return pwf_point;
+}
 FramefabPanel::FramefabPanel( QWidget* parent )
   : rviz::Panel( parent )
 {
@@ -53,12 +60,15 @@ FramefabPanel::FramefabPanel( QWidget* parent )
   // object is destroyed.  Therefore we don't need to keep a pointer
   // to the timer.
   QTimer* output_timer = new QTimer( this );
-
+  testbed_offset.x =0.1;
+  testbed_offset.y =-0.5;
+  testbed_offset.z=0.33;
   // Next we make signal/slot connections.
-  connect( file_select_button , SIGNAL( clicked() ), this, SLOT( readFile() ));
+  connect( file_select_button , SIGNAL( clicked() ), this, SLOT( readPWFFile() ));
   connect( publish_single_link_button, SIGNAL( clicked() ), this, SLOT( drawLink() ));  
   connect( publish_frame_button, SIGNAL( clicked() ), this, SLOT( drawFrame()));
   pose_publisher_ = nh_.advertise<geometry_msgs::PoseArray>("/framelinks",1000);
+  geometry_msgs::Point testbed_offset();
   // Start the timer.
   output_timer->start( 100 );
 
@@ -67,7 +77,7 @@ FramefabPanel::FramefabPanel( QWidget* parent )
 
 
 // Read the file name from the dialog and parse results
-void FramefabPanel::readFile()
+void FramefabPanel::readPWFFile()
 {
       //open file
     QString fileName = QFileDialog::getOpenFileName(this,
@@ -137,7 +147,8 @@ static geometry_msgs::Point scale(geometry_msgs::Point p, float sf){
 }
 
 static QString poseToString(geometry_msgs::Pose pose) {
-   return "["+QString::number(pose.position.x)+","+QString::number(pose.position.y)+","+QString::number(pose.position.z)+"]";
+   geometry_msgs::Point p = transformPoint(pose.position);
+   return "["+QString::number(p.x)+","+QString::number(p.y)+","+QString::number(p.z)+"]";
 }
 
 //Publishes single link at beginning of edges list and pops off list

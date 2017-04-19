@@ -1,3 +1,4 @@
+#include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
@@ -21,10 +22,14 @@ static ros::Rate * r;
 static geometry_msgs::Point testbed_offset;
 static moveit::planning_interface::MoveGroup * move_group;
 static moveit::planning_interface::PlanningSceneInterface * planning_scene_interface;  
-static float cylinder_radius = 0.001;
-
-
+static float cylinder_radius = 0.0025;
+static robot_model_loader::RobotModelLoader * kuka_loader;
 //Takes in framefab point and returns it transformed to the coordinates of our testbed
+/**
+ *
+ * @param pwf_point
+ * @return
+ */
 geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
    pwf_point.x += testbed_offset.x;
    pwf_point.y += testbed_offset.y;
@@ -34,16 +39,34 @@ geometry_msgs::Point transformPoint(geometry_msgs::Point pwf_point) {
 
 
 static std::vector<moveit_msgs::CollisionObject> collision_objects;
-
+/**
+ *
+ * @param start
+ * @param end
+ * @param id
+ * @return
+ */
 moveit_msgs::CollisionObject makeCollisionCylinder(geometry_msgs::Point start, geometry_msgs::Point end,std::string id) {
   moveit_msgs::CollisionObject collision_object;
+
   collision_object.id = id;
   collision_object.header.frame_id = move_group->getPlanningFrame();
   collision_object.operation = moveit_msgs::CollisionObject::ADD;
   shape_msgs::SolidPrimitive link_cylinder;
   link_cylinder.type = shape_msgs::SolidPrimitive::CYLINDER;
   link_cylinder.dimensions.resize(2);
-    
+  
+  shape_msgs::SolidPrimitive vertex_start;
+  shape_msgs::SolidPrimitive vertex_end;
+  vertex_start.type = shape_msgs::SolidPrimitive::SPHERE;
+  vertex_end.type = shape_msgs::SolidPrimitive::SPHERE;
+  vertex_start.dimensions.resize(1);
+  vertex_end.dimensions.resize(1);
+
+  vertex_start.dimensions[0] = cylinder_radius;
+  vertex_end.dimensions[0] = cylinder_radius;
+
+  
   Eigen::Vector3d eStart, eEnd;
   tf::pointMsgToEigen(start, eStart);
   tf::pointMsgToEigen(end, eEnd);
@@ -51,7 +74,7 @@ moveit_msgs::CollisionObject makeCollisionCylinder(geometry_msgs::Point start, g
   link_cylinder.dimensions[0] = height;
   link_cylinder.dimensions[1] = cylinder_radius;
 
-  Eigen::Vector3d axis = eStart - eEnd;
+  Eigen::Vector3d axis = eEnd - eStart;
   axis.normalize();
   Eigen::Vector3d zVec(0.0,0.0,1.0);
   Eigen::Vector3d xVec = axis.cross(zVec);
@@ -69,25 +92,35 @@ moveit_msgs::CollisionObject makeCollisionCylinder(geometry_msgs::Point start, g
   tf::quaternionTFToEigen(tf_q, q);
   q.normalize();
   Eigen::Affine3d pose;
-  q.normalize();
   pose = q * Eigen::AngleAxisd(-0.5*M_PI, Eigen::Vector3d::UnitY());
   Eigen::Vector3d origin;
   tf::pointMsgToEigen(testbed_offset, origin);
   pose.translation() = origin + eStart;
-  geometry_msgs::Pose linkPose;
-  tf::poseEigenToMsg(pose , linkPose);
-  collision_object.primitive_poses.push_back(linkPose);
+  geometry_msgs::Pose start_pose;
+  geometry_msgs::Pose link_pose;
+  geometry_msgs::Pose end_pose;
+  start_pose.position = transformPoint(start);
+  end_pose.position = transformPoint(end);
+  tf::poseEigenToMsg(pose , link_pose);
+  collision_object.primitive_poses.push_back(start_pose);
+  collision_object.primitives.push_back(vertex_start);
+  //collision_object.primitive_poses.push_back(link_pose);
+  //collision_object.primitives.push_back(link_cylinder);
+  collision_object.primitive_poses.push_back(end_pose);
+  collision_object.primitives.push_back(vertex_end);
   // Drawing frame w/ no collision
   //nodes.points.push_back(start);
   //nodes.points.push_back(end);
   //marker_pub.publish(nodes);
   //marker_pub.publish(link_list);
-   
-  collision_object.primitives.push_back(link_cylinder);
-  
+
+
+
   return collision_object;
 }
-
+/**
+ *
+ */
 void drawAll() {
 
   planning_scene_interface->addCollisionObjects(collision_objects);
@@ -144,11 +177,12 @@ int main(int argc, char **argv)
   // We will use the :planning_scene_interface:`PlanningSceneInterface`
   // class to deal directly with the world.
   planning_scene_interface = new moveit::planning_interface::PlanningSceneInterface();
+  kuka_loader = new robot_model_loader::RobotModelLoader("robot_description");
   // initLinklist();
   r = new ros::Rate(20.0);
   r->sleep();
   
-  testbed_offset.x = 0.5;
+  testbed_offset.x = 0.1;
   testbed_offset.y = -0.5;
   testbed_offset.z = 0.33;
   nLinks = 0;  
